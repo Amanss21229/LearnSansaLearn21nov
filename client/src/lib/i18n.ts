@@ -7,11 +7,17 @@ export const translations = {
     chat: "Chat",
     profile: "Profile",
     
-    // Registration
+    // Registration & Auth
     welcomeToSansaLearn: "Welcome to Sänsa Learn",
+    getStarted: "Get Started",
     createAccount: "Create Your Account",
+    login: "Login",
+    welcomeBack: "Welcome Back",
+    loginToAccount: "Login to Your Account",
     name: "Name",
     username: "Username",
+    password: "Password",
+    confirmPassword: "Confirm Password",
     gender: "Gender",
     male: "Male",
     female: "Female",
@@ -34,6 +40,17 @@ export const translations = {
     optional: "Optional",
     uploadPhoto: "Upload Photo",
     register: "Register",
+    youAreA: "You are a",
+    student: "Student",
+    teacher: "Teacher",
+    teacherAccessPassword: "Teacher Access Password",
+    loginSuccess: "Login successful!",
+    loginFailed: "Login failed. Please check your credentials.",
+    loginFailedContact: "Login failed. Please contact our support team via",
+    dontHaveAccount: "Don't have an account? Create one",
+    fillAllFields: "Please fill all required fields",
+    passwordsDoNotMatch: "Passwords do not match",
+    invalidTeacherPassword: "Invalid teacher access password",
     
     // Home
     notifications: "Notifications",
@@ -172,11 +189,17 @@ export const translations = {
     chat: "चैट",
     profile: "प्रोफ़ाइल",
     
-    // Registration
+    // Registration & Auth
     welcomeToSansaLearn: "सांसा लर्न में आपका स्वागत है",
+    getStarted: "शुरू करें",
     createAccount: "अपना खाता बनाएं",
+    login: "लॉगिन",
+    welcomeBack: "वापस स्वागत है",
+    loginToAccount: "अपने खाते में लॉगिन करें",
     name: "नाम",
     username: "उपयोगकर्ता नाम",
+    password: "पासवर्ड",
+    confirmPassword: "पासवर्ड की पुष्टि करें",
     gender: "लिंग",
     male: "पुरुष",
     female: "महिला",
@@ -199,6 +222,17 @@ export const translations = {
     optional: "वैकल्पिक",
     uploadPhoto: "फ़ोटो अपलोड करें",
     register: "पंजीकरण करें",
+    youAreA: "आप एक हैं",
+    student: "छात्र",
+    teacher: "शिक्षक",
+    teacherAccessPassword: "शिक्षक एक्सेस पासवर्ड",
+    loginSuccess: "लॉगिन सफल रहा!",
+    loginFailed: "लॉगिन विफल रहा। कृपया अपनी जानकारी जांचें।",
+    loginFailedContact: "लॉगिन विफल रहा। कृपया हमारी सहायता टीम से संपर्क करें",
+    dontHaveAccount: "खाता नहीं है? एक बनाएं",
+    fillAllFields: "कृपया सभी आवश्यक फ़ील्ड भरें",
+    passwordsDoNotMatch: "पासवर्ड मेल नहीं खाते",
+    invalidTeacherPassword: "अमान्य शिक्षक एक्सेस पासवर्ड",
     
     // Home
     notifications: "सूचनाएं",

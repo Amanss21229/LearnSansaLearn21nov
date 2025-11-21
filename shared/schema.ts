@@ -8,6 +8,7 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   username: text("username").notNull().unique(),
+  password: text("password").notNull(), // Hashed password
   gender: text("gender").notNull(),
   stream: text("stream").notNull(), // School, NEET, JEE
   class: text("class").notNull(), // 5-12, 11, 12, Dropper
@@ -15,6 +16,7 @@ export const users = pgTable("users", {
   email: text("email"),
   profilePhoto: text("profile_photo"),
   language: text("language").notNull().default("english"), // english, hindi
+  userType: text("user_type").notNull().default("student"), // student, teacher
   isAdmin: boolean("is_admin").notNull().default(false),
   adminClass: text("admin_class"), // Which class this admin manages
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -23,6 +25,8 @@ export const users = pgTable("users", {
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+  isAdmin: true,
+  adminClass: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

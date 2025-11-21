@@ -15,10 +15,13 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useUser } from "@/contexts/UserContext";
 import type { User as UserType } from "@shared/schema";
+import { useLocation } from "wouter";
 
 const registrationSchema = z.object({
   name: z.string().min(1, "Name is required"),
   username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string(),
   gender: z.string().min(1, "Gender is required"),
   stream: z.string().min(1, "Stream is required"),
   class: z.string().min(1, "Class is required"),
@@ -26,6 +29,11 @@ const registrationSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   profilePhoto: z.string().optional(),
   language: z.string().default("english"),
+  userType: z.enum(["student", "teacher"]),
+  teacherAccessPassword: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });
 
 type RegistrationForm = z.infer<typeof registrationSchema>;
@@ -34,13 +42,16 @@ export default function Registration() {
   const { t, language } = useLanguage();
   const { setUser } = useUser();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedStream, setSelectedStream] = useState<string>("");
   const [photoPreview, setPhotoPreview] = useState<string>("");
+  const [userType, setUserType] = useState<"student" | "teacher">("student");
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       language: language,
+      userType: "student",
     }
   });
 
@@ -56,6 +67,7 @@ export default function Registration() {
         title: t("success"),
         description: "Account created successfully!",
       });
+      setLocation("/");
     },
     onError: (error: any) => {
       toast({
@@ -156,6 +168,30 @@ export default function Registration() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="password">{t("password")} *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  {...register("password")}
+                  placeholder={t("password")}
+                  data-testid="input-password"
+                />
+                {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">{t("confirmPassword")} *</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  {...register("confirmPassword")}
+                  placeholder={t("confirmPassword")}
+                  data-testid="input-confirm-password"
+                />
+                {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="gender">{t("gender")} *</Label>
                 <Select onValueChange={(value) => setValue("gender", value)}>
                   <SelectTrigger data-testid="select-gender">
@@ -207,6 +243,37 @@ export default function Registration() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="userType">{t("youAreA")} *</Label>
+                <Select onValueChange={(value: "student" | "teacher") => {
+                  setValue("userType", value);
+                  setUserType(value);
+                }}>
+                  <SelectTrigger data-testid="select-user-type">
+                    <SelectValue placeholder={t("student")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">{t("student")}</SelectItem>
+                    <SelectItem value="teacher">{t("teacher")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.userType && <p className="text-sm text-destructive">{errors.userType.message}</p>}
+              </div>
+
+              {userType === "teacher" && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="teacherAccessPassword">{t("teacherAccessPassword")} *</Label>
+                  <Input
+                    id="teacherAccessPassword"
+                    type="password"
+                    {...register("teacherAccessPassword")}
+                    placeholder={t("teacherAccessPassword")}
+                    data-testid="input-teacher-password"
+                  />
+                  {errors.teacherAccessPassword && <p className="text-sm text-destructive">{errors.teacherAccessPassword.message}</p>}
+                </div>
+              )}
+
+              <div className="space-y-2">
                 <Label htmlFor="phone">{t("phone")}</Label>
                 <Input
                   id="phone"
@@ -237,6 +304,17 @@ export default function Registration() {
             >
               {createUserMutation.isPending ? t("loading") : t("register")}
             </Button>
+
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="link"
+                onClick={() => setLocation("/login")}
+                data-testid="button-go-to-login"
+              >
+                {t("dontHaveAccount")}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
