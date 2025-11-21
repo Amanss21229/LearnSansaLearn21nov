@@ -569,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await storage.getUser(submission.userId);
           return {
             ...submission,
-            user: toPublicUser(user),
+            user: toPublicUser(user ?? null),
           };
         })
       );
