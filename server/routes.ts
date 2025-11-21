@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import multer from "multer";
+import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import Groq from "groq-sdk";
 import type { User } from "@shared/schema";
@@ -240,9 +241,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      // Find user by username
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      // Return user data (without password)
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/users", async (req, res) => {
     try {
-      const { username } = req.body;
+      const { username, password, userType, teacherAccessPassword } = req.body;
       
       // Check username availability
       const existing = await storage.getUserByUsername(username);
@@ -250,8 +280,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username already taken" });
       }
 
-      const user = await storage.createUser(req.body);
-      res.json(user);
+      // Verify teacher access password if user is registering as teacher
+      if (userType === "teacher") {
+        const TEACHER_ACCESS_PASSWORD = process.env.TEACHER_ACCESS_PASSWORD;
+        if (!TEACHER_ACCESS_PASSWORD) {
+          return res.status(500).json({ error: "Teacher registration is not configured" });
+        }
+        if (teacherAccessPassword !== TEACHER_ACCESS_PASSWORD) {
+          return res.status(401).json({ error: "Invalid teacher access password" });
+        }
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user with hashed password
+      const userData = {
+        ...req.body,
+        password: hashedPassword,
+        isAdmin: userType === "teacher",
+        adminClass: userType === "teacher" ? "all" : null,
+      };
+
+      // Remove teacherAccessPassword from userData before storing
+      delete userData.teacherAccessPassword;
+
+      const user = await storage.createUser(userData);
+      
+      // Return user data (without password)
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
