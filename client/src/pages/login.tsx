@@ -44,9 +44,20 @@ export default function Login() {
     },
   });
 
+  const handleClearAndRetry = () => {
+    console.log("🧹 Clearing localStorage...");
+    localStorage.clear();
+    console.log("✅ LocalStorage cleared");
+    window.location.reload();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowContactSupport(false);
+    
+    // Clear any stale data before login
+    console.log("🧹 Pre-login: Clearing stale localStorage data");
+    localStorage.removeItem("sansa-user");
     
     if (!username || !password) {
       toast({
@@ -127,7 +138,7 @@ export default function Login() {
               )}
             </Button>
 
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -136,6 +147,22 @@ export default function Login() {
               >
                 {t("dontHaveAccount")}
               </Button>
+              
+              <div className="pt-2 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearAndRetry}
+                  className="w-full text-xs"
+                  data-testid="button-clear-cache"
+                >
+                  🧹 Clear Cache & Retry
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Use this if login is not working
+                </p>
+              </div>
             </div>
           </form>
         </CardContent>

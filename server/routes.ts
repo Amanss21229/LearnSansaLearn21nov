@@ -4,6 +4,9 @@ import { Server as SocketIOServer } from "socket.io";
 import multer from "multer";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
+import { db } from "./db";
+import { materials } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import Groq from "groq-sdk";
 import type { User, UserPublic } from "@shared/schema";
 
