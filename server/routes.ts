@@ -118,6 +118,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
 
+        // Check if chat is enabled for community chats (only admins can send when disabled)
+        if (data.stream && !data.groupId) {
+          const chatSetting = await storage.getChatSetting(data.stream);
+          if (chatSetting && !chatSetting.isEnabled && !currentUser.isAdmin) {
+            socket.emit('chat_disabled', { message: 'Chat is currently disabled by admin' });
+            return;
+          }
+        }
+
         const newMessage = await storage.createMessage({
           groupId: data.groupId,
           stream: data.stream,
@@ -152,17 +161,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         if (!currentUser) return;
 
-        // Get the message (implementation would need getMessageById in storage)
-        // Update message reactions
-        // Broadcast to appropriate room
-        const room = socket.data.currentRoom;
-        if (room) {
-          io.to(room).emit('reaction_added', {
-            messageId: data.messageId,
-            emoji: data.emoji,
-            userId: currentUser.id,
-          });
+        // Get the message
+        const message = await storage.getMessage(data.messageId);
+        if (!message) {
+          console.error('Message not found:', data.messageId);
+          return;
         }
+
+        // Update reactions
+        const reactions = (message.reactions as Record<string, string[]>) || {};
+        if (!reactions[data.emoji]) {
+          reactions[data.emoji] = [];
+        }
+        
+        // Toggle reaction (add if not present, remove if present)
+        const userIndex = reactions[data.emoji].indexOf(currentUser.id);
+        if (userIndex === -1) {
+          reactions[data.emoji].push(currentUser.id);
+        } else {
+          reactions[data.emoji].splice(userIndex, 1);
+          if (reactions[data.emoji].length === 0) {
+            delete reactions[data.emoji];
+          }
+        }
+
+        // Save to database
+        await storage.updateMessageReactions(data.messageId, reactions);
+
+        // Determine the correct room and broadcast
+        const room = message.groupId 
+          ? `group:${message.groupId}` 
+          : `community:${message.stream}`;
+        
+        io.to(room).emit('reaction_added', {
+          messageId: data.messageId,
+          emoji: data.emoji,
+          userId: currentUser.id,
+          reactions,
+        });
       } catch (error) {
         console.error('Add reaction error:', error);
       }
@@ -611,6 +647,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/groups/members/:id", async (req, res) => {
+    try {
+      await storage.updateGroupMemberStatus(req.params.id, req.body.status);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get pending join requests for a group
+  app.get("/api/groups/join-requests/:groupId", async (req, res) => {
+    try {
+      const members = await storage.getGroupMembers(req.params.groupId);
+      const pendingRequests = members.filter(m => m.status === "pending");
+      
+      // Add user names to requests
+      const requestsWithUsers = await Promise.all(
+        pendingRequests.map(async (request) => {
+          const user = await storage.getUser(request.userId);
+          return {
+            ...request,
+            userName: user?.name || "Unknown",
+          };
+        })
+      );
+      
+      res.json(requestsWithUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Announcement routes
   app.get("/api/announcements", async (req, res) => {
     try {
@@ -658,13 +726,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get community messages
+  app.get("/api/messages/community/:stream", async (req, res) => {
+    try {
+      const messages = await storage.getMessages(undefined, req.params.stream);
+      const messagesWithUsers = await Promise.all(
+        messages.map(async (message) => {
+          const user = await storage.getUser(message.userId);
+          return {
+            ...message,
+            userName: user?.name || "Unknown",
+            userPhoto: user?.profilePhoto,
+          };
+        })
+      );
+      res.json(messagesWithUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get group messages
+  app.get("/api/messages/group/:groupId", async (req, res) => {
+    try {
+      const messages = await storage.getMessages(req.params.groupId, undefined);
+      const messagesWithUsers = await Promise.all(
+        messages.map(async (message) => {
+          const user = await storage.getUser(message.userId);
+          return {
+            ...message,
+            userName: user?.name || "Unknown",
+            userPhoto: user?.profilePhoto,
+          };
+        })
+      );
+      res.json(messagesWithUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Pin/unpin message (admin only)
   app.patch("/api/messages/:id/pin", async (req, res) => {
     try {
       const { isPinned } = req.body;
-      // Note: In a real app, we'd check if the user is an admin here
-      // await storage.updateMessagePin(req.params.id, isPinned);
-      res.json({ success: true });
+      const message = await storage.updateMessagePin(req.params.id, isPinned);
+      
+      // Broadcast pin update to all clients in the room
+      const room = message.groupId 
+        ? `group:${message.groupId}` 
+        : `community:${message.stream}`;
+      
+      io.to(room).emit('message_pinned', {
+        messageId: message.id,
+        isPinned: message.isPinned,
+      });
+      
+      res.json(message);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -695,6 +813,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       await storage.updateChatSetting(req.params.stream, req.body.isEnabled);
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/chat/settings/:stream", async (req, res) => {
+    try {
+      const setting = await storage.getChatSetting(req.params.stream);
+      res.json(setting || { stream: req.params.stream, isEnabled: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/chat/settings/:stream", async (req, res) => {
+    try {
+      await storage.updateChatSetting(req.params.stream, req.body.isEnabled);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // File upload for chat images
+  app.post("/api/upload", upload.single('file'), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ error: "File is required" });
+      }
+
+      // Convert file to base64 data URL
+      const base64 = file.buffer.toString('base64');
+      const mimeType = file.mimetype;
+      const url = `data:${mimeType};base64,${base64}`;
+
+      res.json({ url });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

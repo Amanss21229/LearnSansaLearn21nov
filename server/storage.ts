@@ -68,7 +68,10 @@ export interface IStorage {
   
   // Messages
   getMessages(groupId?: string, stream?: string): Promise<Message[]>;
+  getMessage(id: string): Promise<Message | undefined>;
   createMessage(message: InsertMessage): Promise<Message>;
+  updateMessageReactions(id: string, reactions: any): Promise<Message>;
+  updateMessagePin(id: string, isPinned: boolean): Promise<Message>;
   
   // Chat Settings
   getChatSetting(stream: string): Promise<ChatSetting | undefined>;
@@ -280,6 +283,29 @@ export class DbStorage implements IStorage {
 
   async createMessage(message: InsertMessage): Promise<Message> {
     const result = await db.insert(messages).values(message).returning();
+    return result[0];
+  }
+
+  async getMessage(id: string): Promise<Message | undefined> {
+    const result = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
+    return result[0];
+  }
+
+  async updateMessageReactions(id: string, reactions: any): Promise<Message> {
+    const result = await db.update(messages)
+      .set({ reactions })
+      .where(eq(messages.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Message not found");
+    return result[0];
+  }
+
+  async updateMessagePin(id: string, isPinned: boolean): Promise<Message> {
+    const result = await db.update(messages)
+      .set({ isPinned })
+      .where(eq(messages.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Message not found");
     return result[0];
   }
 
