@@ -11,6 +11,7 @@ import TestPage from "@/pages/test-page";
 import AITutor from "@/pages/ai-tutor";
 import Chat from "@/pages/chat";
 import Profile from "@/pages/profile";
+import Announcements from "@/pages/announcements";
 
 function AuthenticatedApp() {
   const { user } = useUser();
@@ -25,6 +26,7 @@ function AuthenticatedApp() {
         <Switch>
           <Route path="/" component={() => <Redirect to="/home" />} />
           <Route path="/home" component={Home} />
+          <Route path="/announcements" component={Announcements} />
           <Route path="/test" component={TestPage} />
           <Route path="/ai-tutor" component={AITutor} />
           <Route path="/chat" component={Chat} />

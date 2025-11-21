@@ -4,12 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Bell, Search, Plus, BookOpen, FileText, GraduationCap, Beaker, Leaf, Bug } from "lucide-react";
+import { Bell, Search, Plus, BookOpen, FileText, GraduationCap, Beaker, Leaf, Bug, FileIcon, Image, Music, Video, Youtube, ExternalLink, Eye } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import type { Subject, Banner, Section, Material } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import SearchDialog from "@/components/SearchDialog";
+import BannerUploadDialog from "@/components/BannerUploadDialog";
+import SectionDialog from "@/components/SectionDialog";
+import MaterialUploadDialog from "@/components/MaterialUploadDialog";
 
 const subjectIcons = {
   Hindi: BookOpen,
@@ -26,8 +34,14 @@ const subjectIcons = {
 export default function Home() {
   const { user } = useUser();
   const { t } = useLanguage();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showBannerDialog, setShowBannerDialog] = useState(false);
+  const [showSectionDialog, setShowSectionDialog] = useState(false);
+  const [showMaterialDialog, setShowMaterialDialog] = useState(false);
 
   const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ["/api/subjects", user?.stream, user?.class],
@@ -45,12 +59,48 @@ export default function Home() {
 
   const { data: sections } = useQuery<Section[]>({
     queryKey: ["/api/sections", selectedSubject?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/sections?subjectId=${selectedSubject?.id}`);
+      if (!response.ok) throw new Error("Failed to fetch sections");
+      return response.json();
+    },
     enabled: !!selectedSubject,
+  });
+
+  const deleteBannerMutation = useMutation({
+    mutationFn: (bannerId: string) => apiRequest("DELETE", `/api/banners/${bannerId}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
+      toast({ title: t("success"), description: t("bannerDeletedSuccessfully") });
+    },
   });
 
   const getSubjectIcon = (name: string) => {
     const Icon = subjectIcons[name as keyof typeof subjectIcons] || BookOpen;
     return Icon;
+  };
+
+  const getMaterialIcon = (type: string) => {
+    switch (type) {
+      case "pdf": return FileIcon;
+      case "image": return Image;
+      case "audio": return Music;
+      case "video": return Video;
+      case "youtube": return Youtube;
+      default: return FileIcon;
+    }
+  };
+
+  const useSectionMaterials = (sectionId: string) => {
+    return useQuery<Material[]>({
+      queryKey: ["/api/materials", sectionId],
+      queryFn: async () => {
+        const response = await fetch(`/api/materials?sectionId=${sectionId}`);
+        if (!response.ok) throw new Error("Failed to fetch materials");
+        return response.json();
+      },
+      enabled: !!sectionId,
+    });
   };
 
   return (
@@ -66,14 +116,23 @@ export default function Home() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" data-testid="button-search">
+          <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)} data-testid="button-search">
             <Search className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="icon" data-testid="button-notifications">
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/announcements")} data-testid="button-notifications">
             <Bell className="w-5 h-5" />
           </Button>
         </div>
       </header>
+
+      <SearchDialog open={showSearch} onOpenChange={setShowSearch} userId={user?.id || ""} />
+      <BannerUploadDialog open={showBannerDialog} onOpenChange={setShowBannerDialog} />
+      {selectedSubject && (
+        <>
+          <SectionDialog open={showSectionDialog} onOpenChange={setShowSectionDialog} subjectId={selectedSubject.id} />
+          <MaterialUploadDialog open={showMaterialDialog} onOpenChange={setShowMaterialDialog} subjectId={selectedSubject.id} />
+        </>
+      )}
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-6">
@@ -83,7 +142,7 @@ export default function Home() {
               <div className="flex items-center justify-between">
                 <h2 className="font-heading font-semibold text-lg">{t("featuredBanners")}</h2>
                 {user?.isAdmin && (
-                  <Button size="sm" variant="outline" data-testid="button-add-banner">
+                  <Button size="sm" variant="outline" onClick={() => setShowBannerDialog(true)} data-testid="button-add-banner">
                     <Plus className="w-4 h-4" />
                   </Button>
                 )}
@@ -93,13 +152,24 @@ export default function Home() {
                   {banners.map((banner) => (
                     <div
                       key={banner.id}
-                      className="relative h-48 w-80 flex-shrink-0 rounded-xl overflow-hidden hover-elevate"
+                      className="relative h-48 w-80 flex-shrink-0 rounded-xl overflow-hidden hover-elevate group"
                     >
                       <img
                         src={banner.imageUrl}
                         alt="Banner"
                         className="w-full h-full object-cover"
                       />
+                      {user?.isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => deleteBannerMutation.mutate(banner.id)}
+                          data-testid={`button-delete-banner-${banner.id}`}
+                        >
+                          {t("delete")}
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -146,28 +216,70 @@ export default function Home() {
                         <div className="space-y-4 pr-4">
                           {user?.isAdmin && (
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline" data-testid="button-create-section">
+                              <Button size="sm" variant="outline" onClick={() => setShowSectionDialog(true)} data-testid="button-create-section">
                                 <Plus className="w-4 h-4 mr-2" />
                                 {t("createSection")}
                               </Button>
-                              <Button size="sm" variant="outline" data-testid="button-upload-material">
+                              <Button size="sm" variant="outline" onClick={() => setShowMaterialDialog(true)} data-testid="button-upload-material">
                                 <Plus className="w-4 h-4 mr-2" />
                                 {t("uploadMaterial")}
                               </Button>
                             </div>
                           )}
-                          {sections?.map((section) => (
-                            <Card key={section.id}>
-                              <CardHeader>
-                                <CardTitle className="text-lg">{section.name}</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <p className="text-sm text-muted-foreground">
-                                  {t("studyMaterials")}
-                                </p>
-                              </CardContent>
-                            </Card>
-                          ))}
+                          {sections?.map((section) => {
+                            const { data: sectionMaterials } = useSectionMaterials(section.id);
+                            return (
+                              <Card key={section.id}>
+                                <CardHeader>
+                                  <CardTitle className="text-lg">{section.name}</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  {sectionMaterials && sectionMaterials.length > 0 ? (
+                                    <div className="space-y-2">
+                                      {sectionMaterials.map((material) => {
+                                        const Icon = getMaterialIcon(material.type);
+                                        return (
+                                          <div
+                                            key={material.id}
+                                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover-elevate cursor-pointer"
+                                            onClick={() => {
+                                              if (material.type === "youtube") {
+                                                window.open(material.url, "_blank");
+                                              } else {
+                                                window.open(material.url, "_blank");
+                                              }
+                                            }}
+                                            data-testid={`material-${material.id}`}
+                                          >
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                <Icon className="w-5 h-5 text-primary" />
+                                              </div>
+                                              <div className="min-w-0 flex-1">
+                                                <h4 className="font-medium text-sm truncate">{material.title}</h4>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                  <Badge variant="secondary" className="text-xs">{material.type.toUpperCase()}</Badge>
+                                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                    <Eye className="w-3 h-3" />
+                                                    {material.viewCount}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                      {t("noMaterialsYet")}
+                                    </p>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
                           {(!sections || sections.length === 0) && (
                             <div className="text-center py-12 text-muted-foreground">
                               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />

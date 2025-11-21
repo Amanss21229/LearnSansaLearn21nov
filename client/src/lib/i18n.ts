@@ -121,6 +121,40 @@ export const translations = {
     enableChat: "Enable Chat",
     disableChat: "Disable Chat",
     
+    // Announcements
+    announcements: "Announcements",
+    latestUpdates: "Latest Updates",
+    createAnnouncement: "Create Announcement",
+    createNewAnnouncement: "Create New Announcement",
+    announcementTitle: "Announcement Title",
+    announcementContent: "Announcement Content",
+    title: "Title",
+    content: "Content",
+    targetStream: "Target Stream",
+    targetClass: "Target Class",
+    allStreams: "All Streams",
+    allClasses: "All Classes",
+    creating: "Creating...",
+    noAnnouncements: "No announcements yet",
+    
+    // Search
+    searchGroups: "Search groups by name or username",
+    noResults: "No results found",
+    startSearching: "Start searching for groups",
+    
+    // Banners
+    uploadBanner: "Upload Banner",
+    uploadImage: "Upload Image",
+    imageUrl: "Image URL",
+    uploading: "Uploading...",
+    bannerDeletedSuccessfully: "Banner deleted successfully",
+    
+    // Materials
+    selectSection: "Select Section",
+    uploadFile: "Upload File",
+    youtubeUrl: "YouTube URL",
+    noMaterialsYet: "No materials yet",
+    
     // Common
     loading: "Loading...",
     error: "Error",
@@ -251,6 +285,40 @@ export const translations = {
     chatControls: "चैट नियंत्रण",
     enableChat: "चैट सक्षम करें",
     disableChat: "चैट अक्षम करें",
+    
+    // Announcements
+    announcements: "घोषणाएं",
+    latestUpdates: "नवीनतम अपडेट",
+    createAnnouncement: "घोषणा बनाएं",
+    createNewAnnouncement: "नई घोषणा बनाएं",
+    announcementTitle: "घोषणा शीर्षक",
+    announcementContent: "घोषणा सामग्री",
+    title: "शीर्षक",
+    content: "सामग्री",
+    targetStream: "लक्षित स्ट्रीम",
+    targetClass: "लक्षित कक्षा",
+    allStreams: "सभी स्ट्रीम",
+    allClasses: "सभी कक्षाएं",
+    creating: "बना रहे हैं...",
+    noAnnouncements: "अभी तक कोई घोषणा नहीं",
+    
+    // Search
+    searchGroups: "नाम या यूज़रनेम से समूह खोजें",
+    noResults: "कोई परिणाम नहीं मिला",
+    startSearching: "समूह खोजना शुरू करें",
+    
+    // Banners
+    uploadBanner: "बैनर अपलोड करें",
+    uploadImage: "छवि अपलोड करें",
+    imageUrl: "छवि URL",
+    uploading: "अपलोड हो रहा है...",
+    bannerDeletedSuccessfully: "बैनर सफलतापूर्वक हटाया गया",
+    
+    // Materials
+    selectSection: "अनुभाग चुनें",
+    uploadFile: "फ़ाइल अपलोड करें",
+    youtubeUrl: "यूट्यूब URL",
+    noMaterialsYet: "अभी तक कोई सामग्री नहीं",
     
     // Common
     loading: "लोड हो रहा है...",
