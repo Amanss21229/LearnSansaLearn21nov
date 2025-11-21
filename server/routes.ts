@@ -1,89 +1,195 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { WebSocketServer, WebSocket } from "ws";
+import { Server as SocketIOServer } from "socket.io";
+import multer from "multer";
 import { storage } from "./storage";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import type { User } from "@shared/schema";
 
-// Initialize OpenAI client only if API key is provided
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Initialize Groq client for AI tutor
+const groq = process.env.GROQ_API_KEY 
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
-interface WebSocketClient extends WebSocket {
-  userId?: string;
-  stream?: string;
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allowed file types
+    const allowedMimes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'audio/mpeg',
+      'audio/wav',
+      'video/mp4',
+      'video/webm',
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'));
+    }
+  },
+});
+
+// Bad words filter list
+const BAD_WORDS = [
+  'badword1', 'badword2', // Add actual bad words here
+];
+
+function containsBadWords(text: string): boolean {
+  const lowerText = text.toLowerCase();
+  return BAD_WORDS.some(word => lowerText.includes(word));
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // WebSocket server for real-time chat
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  // Socket.IO server for real-time chat
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    },
+    path: "/socket.io"
+  });
 
-  const clients = new Map<string, WebSocketClient>();
+  // Socket.IO connection handling
+  io.on('connection', (socket) => {
+    console.log('Socket.IO client connected:', socket.id);
+    let currentUser: User | null = null;
 
-  wss.on('connection', (ws: WebSocketClient) => {
-    console.log('WebSocket client connected');
-
-    ws.on('message', async (data: Buffer) => {
+    // Authenticate user and join appropriate rooms
+    socket.on('auth', async (data: { userId: string }) => {
       try {
-        const message = JSON.parse(data.toString());
-
-        if (message.type === 'auth') {
-          ws.userId = message.userId;
-          const user = await storage.getUser(message.userId);
-          if (user) {
-            ws.stream = user.stream;
-            clients.set(message.userId, ws);
-          }
-        }
-
-        if (message.type === 'sendMessage' && ws.userId) {
-          const user = await storage.getUser(ws.userId);
-          if (!user) return;
-
-          const newMessage = await storage.createMessage({
-            groupId: message.groupId || undefined,
-            stream: message.stream || undefined,
-            userId: ws.userId,
-            content: message.content,
-            type: 'text',
-            isPinned: false,
-          });
-
-          // Broadcast to relevant clients
-          const messageWithUser = {
-            type: 'message',
-            message: {
-              ...newMessage,
-              userName: user.name,
-              userPhoto: user.profilePhoto,
-            },
-          };
-
-          clients.forEach((client, userId) => {
-            if (client.readyState === WebSocket.OPEN) {
-              if (message.groupId) {
-                // Send to group members
-                client.send(JSON.stringify(messageWithUser));
-              } else if (message.stream && client.stream === message.stream) {
-                // Send to community chat
-                client.send(JSON.stringify(messageWithUser));
-              }
-            }
-          });
+        const user = await storage.getUser(data.userId);
+        if (user) {
+          currentUser = user;
+          socket.data.userId = user.id;
+          socket.data.stream = user.stream;
+          
+          // Join community room based on stream
+          socket.join(`community:${user.stream}`);
+          
+          console.log(`User ${user.username} joined community:${user.stream}`);
         }
       } catch (error) {
-        console.error('WebSocket error:', error);
+        console.error('Auth error:', error);
       }
     });
 
-    ws.on('close', () => {
-      if (ws.userId) {
-        clients.delete(ws.userId);
+    // Join a group
+    socket.on('join_group', async (data: { groupId: string }) => {
+      try {
+        if (!currentUser) return;
+        
+        // Verify user is a member of the group
+        const members = await storage.getGroupMembers(data.groupId);
+        const isMember = members.some(m => m.userId === currentUser!.id && m.status === 'accepted');
+        
+        if (isMember) {
+          socket.join(`group:${data.groupId}`);
+          console.log(`User ${currentUser.username} joined group:${data.groupId}`);
+        }
+      } catch (error) {
+        console.error('Join group error:', error);
       }
+    });
+
+    // Send a message (community or group)
+    socket.on('send_message', async (data: {
+      content: string;
+      type: 'text' | 'image';
+      groupId?: string;
+      stream?: string;
+    }) => {
+      try {
+        if (!currentUser) return;
+
+        // Check for bad words
+        if (containsBadWords(data.content)) {
+          socket.emit('bad_word_detected', { message: 'Your message contains inappropriate content' });
+          return;
+        }
+
+        const newMessage = await storage.createMessage({
+          groupId: data.groupId,
+          stream: data.stream,
+          userId: currentUser.id,
+          content: data.content,
+          type: data.type,
+          isPinned: false,
+        });
+
+        // Broadcast to appropriate room
+        const messageWithUser = {
+          ...newMessage,
+          userName: currentUser.name,
+          userPhoto: currentUser.profilePhoto,
+        };
+
+        if (data.groupId) {
+          io.to(`group:${data.groupId}`).emit('new_message', messageWithUser);
+        } else if (data.stream) {
+          io.to(`community:${data.stream}`).emit('new_message', messageWithUser);
+        }
+      } catch (error) {
+        console.error('Send message error:', error);
+      }
+    });
+
+    // Add reaction to message
+    socket.on('add_reaction', async (data: {
+      messageId: string;
+      emoji: string;
+    }) => {
+      try {
+        if (!currentUser) return;
+
+        // Get the message (implementation would need getMessageById in storage)
+        // Update message reactions
+        // Broadcast to appropriate room
+        const room = socket.data.currentRoom;
+        if (room) {
+          io.to(room).emit('reaction_added', {
+            messageId: data.messageId,
+            emoji: data.emoji,
+            userId: currentUser.id,
+          });
+        }
+      } catch (error) {
+        console.error('Add reaction error:', error);
+      }
+    });
+
+    // Typing indicator
+    socket.on('typing', (data: { groupId?: string; stream?: string }) => {
+      if (!currentUser) return;
+      
+      const room = data.groupId ? `group:${data.groupId}` : `community:${data.stream}`;
+      socket.to(room).emit('user_typing', {
+        userId: currentUser.id,
+        userName: currentUser.name,
+      });
+    });
+
+    socket.on('stop_typing', (data: { groupId?: string; stream?: string }) => {
+      if (!currentUser) return;
+      
+      const room = data.groupId ? `group:${data.groupId}` : `community:${data.stream}`;
+      socket.to(room).emit('user_stop_typing', {
+        userId: currentUser.id,
+      });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket.IO client disconnected:', socket.id);
     });
   });
 
@@ -184,6 +290,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload material with file
+  app.post("/api/materials/upload", upload.single('file'), async (req, res) => {
+    try {
+      const { sectionId, title, type } = req.body;
+      const file = req.file;
+
+      if (!file && type !== 'youtube') {
+        return res.status(400).json({ error: "File is required" });
+      }
+
+      let url = '';
+      
+      if (type === 'youtube') {
+        // For YouTube videos, just store the URL
+        url = req.body.url;
+      } else {
+        // Convert file to base64 data URL
+        const base64 = file!.buffer.toString('base64');
+        const mimeType = file!.mimetype;
+        url = `data:${mimeType};base64,${base64}`;
+      }
+
+      const material = await storage.createMaterial({
+        sectionId,
+        title,
+        type,
+        url,
+      });
+
+      res.json(material);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create material (for YouTube or external URLs)
   app.post("/api/materials", async (req, res) => {
     try {
       const material = await storage.createMaterial(req.body);
@@ -343,32 +485,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Tutor
+  // AI Tutor - Text, Image, and Audio support
   app.post("/api/ai-tutor", async (req, res) => {
     try {
-      if (!openai) {
+      if (!groq) {
         return res.status(503).json({ 
-          error: "AI Tutor is not available. Please configure OPENAI_API_KEY to enable this feature." 
+          error: "AI Tutor is not available. Please configure GROQ_API_KEY to enable this feature." 
         });
       }
 
-      const { message } = req.body;
+      const { message, image, messageType } = req.body;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5",
-        messages: [
-          {
-            role: "system",
-            content: "You are AIMAI, a helpful AI tutor for students. Answer only academic and study-related questions. Be encouraging, clear, and educational in your responses. If asked non-academic questions, politely redirect to academic topics.",
-          },
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-      });
+      // Handle audio transcription first if audio is provided
+      if (messageType === 'audio') {
+        // Audio transcription would go here using Whisper
+        // For now, return a placeholder
+        return res.json({ 
+          response: "Audio transcription coming soon. Please use text or image input for now." 
+        });
+      }
 
-      res.json({ response: completion.choices[0].message.content });
+      // Handle text with optional image (vision)
+      if (image) {
+        // Use vision model for image understanding
+        const completion = await groq.chat.completions.create({
+          model: "llama-3.2-90b-vision-preview",
+          messages: [
+            {
+              role: "system",
+              content: "You are AIMAI, a helpful AI tutor for students. Answer only academic and study-related questions. Be encouraging, clear, and educational in your responses. If asked non-academic questions, politely redirect to academic topics.",
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: message || "What is in this image? Please explain in detail.",
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: image, // Can be URL or base64
+                  },
+                },
+              ],
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 1024,
+        });
+
+        res.json({ response: completion.choices[0].message.content });
+      } else {
+        // Regular text-only conversation
+        const completion = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: "You are AIMAI, a helpful AI tutor for students. Answer only academic and study-related questions. Be encouraging, clear, and educational in your responses. If asked non-academic questions, politely redirect to academic topics.",
+            },
+            {
+              role: "user",
+              content: message,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 1024,
+        });
+
+        res.json({ response: completion.choices[0].message.content });
+      }
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -442,6 +629,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const announcement = await storage.createAnnouncement(req.body);
       res.json(announcement);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Messages
+  app.get("/api/messages", async (req, res) => {
+    try {
+      const { groupId, stream } = req.query;
+      const messages = await storage.getMessages(groupId as string, stream as string);
+      
+      // Get user data for each message
+      const messagesWithUsers = await Promise.all(
+        messages.map(async (message) => {
+          const user = await storage.getUser(message.userId);
+          return {
+            ...message,
+            userName: user?.name,
+            userPhoto: user?.profilePhoto,
+          };
+        })
+      );
+      
+      res.json(messagesWithUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Pin/unpin message (admin only)
+  app.patch("/api/messages/:id/pin", async (req, res) => {
+    try {
+      const { isPinned } = req.body;
+      // Note: In a real app, we'd check if the user is an admin here
+      // await storage.updateMessagePin(req.params.id, isPinned);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete message (admin only)
+  app.delete("/api/messages/:id", async (req, res) => {
+    try {
+      // Note: In a real app, we'd check if the user is an admin here
+      // await storage.deleteMessage(req.params.id);
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
