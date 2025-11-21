@@ -342,6 +342,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/subjects/all", async (req, res) => {
+    try {
+      const subjects = await storage.getAllSubjects();
+      res.json(subjects);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/subjects", async (req, res) => {
     try {
       const subject = await storage.createSubject(req.body);
@@ -445,7 +454,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Increment material view count
   app.post("/api/materials/:id/view", async (req, res) => {
     try {
-      await storage.incrementMaterialView(req.params.id);
+      const materialId = req.params.id;
+      
+      // Validate that material exists
+      const material = await db.select().from(materials).where(eq(materials.id, materialId)).limit(1);
+      if (!material[0]) {
+        return res.status(404).json({ error: "Material not found" });
+      }
+      
+      await storage.incrementMaterialView(materialId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

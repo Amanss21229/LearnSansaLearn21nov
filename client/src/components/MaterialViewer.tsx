@@ -5,7 +5,7 @@ import { ExternalLink, Eye } from "lucide-react";
 import type { Material } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface MaterialViewerProps {
   material: Material | null;
@@ -14,15 +14,23 @@ interface MaterialViewerProps {
 }
 
 export default function MaterialViewer({ material, open, onOpenChange }: MaterialViewerProps) {
+  const viewedRef = useRef<Set<string>>(new Set());
+
   const incrementViewMutation = useMutation({
     mutationFn: (materialId: string) => apiRequest("POST", `/api/materials/${materialId}/view`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/materials"] });
     },
+    onError: (error: Error) => {
+      // Silently fail on view count increment errors
+      console.error("Failed to increment view count:", error);
+    },
   });
 
   useEffect(() => {
-    if (open && material) {
+    // Only increment view count once per material per session
+    if (open && material && !viewedRef.current.has(material.id)) {
+      viewedRef.current.add(material.id);
       incrementViewMutation.mutate(material.id);
     }
   }, [open, material?.id]);

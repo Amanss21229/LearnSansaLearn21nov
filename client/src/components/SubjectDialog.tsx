@@ -36,36 +36,15 @@ export default function SubjectDialog({ open, onOpenChange }: SubjectDialogProps
   const [classLevel, setClassLevel] = useState("");
   const [icon, setIcon] = useState("book");
 
-  const { data: allSubjects } = useQuery<Subject[]>({
+  const { data: allSubjects, isLoading: loadingSubjects } = useQuery<Subject[]>({
     queryKey: ["/api/subjects/all"],
-    queryFn: async () => {
-      const streams = ["School", "NEET", "JEE"];
-      const classes = ["5", "6", "7", "8", "9", "10", "11", "12"];
-      const allSubjects: Subject[] = [];
-      
-      for (const s of streams) {
-        for (const c of classes) {
-          const response = await fetch(`/api/subjects?stream=${s}&class=${c}`);
-          if (response.ok) {
-            const data = await response.json();
-            allSubjects.push(...data);
-          }
-        }
-      }
-      
-      // Remove duplicates based on id
-      const uniqueSubjects = Array.from(
-        new Map(allSubjects.map(subject => [subject.id, subject])).values()
-      );
-      
-      return uniqueSubjects;
-    },
     enabled: open,
   });
 
   const createMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/subjects", { name, stream, class: classLevel, icon }),
     onSuccess: () => {
+      // Invalidate both the all subjects query and the user-specific query
       queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/subjects/all"] });
       toast({ title: t("success"), description: "Subject created successfully" });
@@ -82,6 +61,7 @@ export default function SubjectDialog({ open, onOpenChange }: SubjectDialogProps
   const deleteMutation = useMutation({
     mutationFn: (subjectId: string) => apiRequest("DELETE", `/api/subjects/${subjectId}`, {}),
     onSuccess: () => {
+      // Invalidate both the all subjects query and the user-specific query
       queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/subjects/all"] });
       toast({ title: t("success"), description: "Subject deleted successfully" });
@@ -185,7 +165,11 @@ export default function SubjectDialog({ open, onOpenChange }: SubjectDialogProps
             <h3 className="font-semibold text-lg">Existing Subjects</h3>
             <ScrollArea className="h-[300px] pr-4">
               <div className="space-y-2">
-                {allSubjects && allSubjects.length > 0 ? (
+                {loadingSubjects ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>Loading subjects...</p>
+                  </div>
+                ) : allSubjects && allSubjects.length > 0 ? (
                   allSubjects.map((subject) => (
                     <Card key={subject.id} className="hover-elevate">
                       <CardContent className="p-3 flex items-center justify-between">

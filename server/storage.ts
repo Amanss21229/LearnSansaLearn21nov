@@ -27,6 +27,7 @@ export interface IStorage {
   
   // Subjects
   getSubjects(stream: string, classLevel: string): Promise<Subject[]>;
+  getAllSubjects(): Promise<Subject[]>;
   createSubject(subject: InsertSubject): Promise<Subject>;
   deleteSubject(id: string): Promise<void>;
   
@@ -130,6 +131,10 @@ export class DbStorage implements IStorage {
 
   async deleteSubject(id: string): Promise<void> {
     await db.delete(subjects).where(eq(subjects.id, id));
+  }
+
+  async getAllSubjects(): Promise<Subject[]> {
+    return db.select().from(subjects).orderBy(subjects.stream, subjects.class, subjects.name);
   }
 
   // Sections
