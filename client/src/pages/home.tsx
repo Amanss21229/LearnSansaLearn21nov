@@ -48,6 +48,12 @@ export default function Home() {
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [showMaterialViewer, setShowMaterialViewer] = useState(false);
 
+  // Debug logging
+  console.log("🔍 Home Page - User Data:", user);
+  console.log("🔍 isAdmin:", user?.isAdmin);
+  console.log("🔍 stream:", user?.stream);
+  console.log("🔍 class:", user?.class);
+
   const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ["/api/subjects", user?.stream, user?.class],
     queryFn: async () => {
