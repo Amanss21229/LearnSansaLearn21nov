@@ -12,8 +12,11 @@ import {
   type Message, type InsertMessage,
   type ChatSetting, type InsertChatSetting,
   type Announcement, type InsertAnnouncement,
+  users, subjects, sections, materials, banners, tests, questions,
+  submissions, groups, groupMembers, messages, chatSettings, announcements,
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, and, sql, desc, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -76,106 +79,35 @@ export interface IStorage {
   createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private subjects: Map<string, Subject>;
-  private sections: Map<string, Section>;
-  private materials: Map<string, Material>;
-  private banners: Map<string, Banner>;
-  private tests: Map<string, Test>;
-  private questions: Map<string, Question>;
-  private submissions: Map<string, Submission>;
-  private groups: Map<string, Group>;
-  private groupMembers: Map<string, GroupMember>;
-  private messages: Map<string, Message>;
-  private chatSettings: Map<string, ChatSetting>;
-  private announcements: Map<string, Announcement>;
-
-  constructor() {
-    this.users = new Map();
-    this.subjects = new Map();
-    this.sections = new Map();
-    this.materials = new Map();
-    this.banners = new Map();
-    this.tests = new Map();
-    this.questions = new Map();
-    this.submissions = new Map();
-    this.groups = new Map();
-    this.groupMembers = new Map();
-    this.messages = new Map();
-    this.chatSettings = new Map();
-    this.announcements = new Map();
-    
-    this.initializeDefaultData();
-  }
-
-  private initializeDefaultData() {
-    // Initialize default subjects for different streams
-    const defaultSubjects = [
-      { name: "Hindi", stream: "School", class: "5-12", icon: "book" },
-      { name: "English", stream: "School", class: "5-12", icon: "book" },
-      { name: "Mathematics", stream: "School", class: "5-12", icon: "calculator" },
-      { name: "Science", stream: "School", class: "5-12", icon: "flask" },
-      { name: "Social Studies", stream: "School", class: "5-12", icon: "globe" },
-      { name: "Physics", stream: "NEET", class: "11-12", icon: "atom" },
-      { name: "Chemistry", stream: "NEET", class: "11-12", icon: "flask" },
-      { name: "Botany", stream: "NEET", class: "11-12", icon: "leaf" },
-      { name: "Zoology", stream: "NEET", class: "11-12", icon: "bug" },
-      { name: "Physics", stream: "JEE", class: "11-12", icon: "atom" },
-      { name: "Chemistry", stream: "JEE", class: "11-12", icon: "flask" },
-      { name: "Mathematics", stream: "JEE", class: "11-12", icon: "calculator" },
-    ];
-
-    defaultSubjects.forEach(subject => {
-      const id = randomUUID();
-      this.subjects.set(id, {
-        id,
-        name: subject.name,
-        stream: subject.stream,
-        class: subject.class,
-        icon: subject.icon,
-        createdAt: new Date(),
-      });
-    });
-  }
-
+export class DbStorage implements IStorage {
   // Users
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(u => u.username === username);
+    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { 
-      ...insertUser, 
-      id,
-      createdAt: new Date(),
-      isAdmin: insertUser.isAdmin || false,
-      adminClass: insertUser.adminClass || null,
-      phone: insertUser.phone || null,
-      email: insertUser.email || null,
-      profilePhoto: insertUser.profilePhoto || null,
-    };
-    this.users.set(id, user);
-    return user;
+    const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User> {
-    const user = this.users.get(id);
-    if (!user) throw new Error("User not found");
-    const updated = { ...user, ...updates };
-    this.users.set(id, updated);
-    return updated;
+    const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    if (!result[0]) throw new Error("User not found");
+    return result[0];
   }
 
   // Subjects
   async getSubjects(stream: string, classLevel: string): Promise<Subject[]> {
-    return Array.from(this.subjects.values()).filter(s => {
-      if (s.stream !== stream) return false;
+    const result = await db.select().from(subjects).where(eq(subjects.stream, stream));
+    
+    // Filter by class level logic
+    return result.filter(s => {
       const classRange = s.class.split('-');
       if (classRange.length === 2) {
         const [min, max] = classRange.map(Number);
@@ -187,224 +119,208 @@ export class MemStorage implements IStorage {
   }
 
   async createSubject(subject: InsertSubject): Promise<Subject> {
-    const id = randomUUID();
-    const newSubject: Subject = { ...subject, id, createdAt: new Date(), icon: subject.icon || null };
-    this.subjects.set(id, newSubject);
-    return newSubject;
+    const result = await db.insert(subjects).values(subject).returning();
+    return result[0];
   }
 
   // Sections
   async getSections(subjectId: string): Promise<Section[]> {
-    return Array.from(this.sections.values()).filter(s => s.subjectId === subjectId);
+    return db.select().from(sections).where(eq(sections.subjectId, subjectId));
   }
 
   async createSection(section: InsertSection): Promise<Section> {
-    const id = randomUUID();
-    const newSection: Section = { ...section, id, createdAt: new Date() };
-    this.sections.set(id, newSection);
-    return newSection;
+    const result = await db.insert(sections).values(section).returning();
+    return result[0];
   }
 
   // Materials
   async getMaterials(sectionId: string): Promise<Material[]> {
-    return Array.from(this.materials.values()).filter(m => m.sectionId === sectionId);
+    return db.select().from(materials).where(eq(materials.sectionId, sectionId));
   }
 
   async createMaterial(material: InsertMaterial): Promise<Material> {
-    const id = randomUUID();
-    const newMaterial: Material = { ...material, id, viewCount: 0, createdAt: new Date() };
-    this.materials.set(id, newMaterial);
-    return newMaterial;
+    const result = await db.insert(materials).values(material).returning();
+    return result[0];
   }
 
   // Banners
   async getBanners(): Promise<Banner[]> {
-    return Array.from(this.banners.values()).sort((a, b) => a.order - b.order);
+    return db.select().from(banners).orderBy(asc(banners.order));
   }
 
   async createBanner(banner: InsertBanner): Promise<Banner> {
-    const id = randomUUID();
-    const newBanner: Banner = { ...banner, id, createdAt: new Date() };
-    this.banners.set(id, newBanner);
-    return newBanner;
+    const result = await db.insert(banners).values(banner).returning();
+    return result[0];
   }
 
   async deleteBanner(id: string): Promise<void> {
-    this.banners.delete(id);
+    await db.delete(banners).where(eq(banners.id, id));
   }
 
   // Tests
   async getTests(stream: string, classLevel: string): Promise<Test[]> {
-    return Array.from(this.tests.values()).filter(
-      t => t.stream === stream && t.class === classLevel
-    );
+    return db.select().from(tests)
+      .where(and(eq(tests.stream, stream), eq(tests.class, classLevel)));
   }
 
   async getTest(id: string): Promise<Test | undefined> {
-    return this.tests.get(id);
+    const result = await db.select().from(tests).where(eq(tests.id, id)).limit(1);
+    return result[0];
   }
 
   async createTest(test: InsertTest): Promise<Test> {
-    const id = randomUUID();
-    const newTest: Test = { ...test, id, totalQuestions: 0, sectionId: test.sectionId || null, createdAt: new Date() };
-    this.tests.set(id, newTest);
-    return newTest;
+    const result = await db.insert(tests).values(test).returning();
+    return result[0];
   }
 
   // Questions
   async getQuestions(testId: string): Promise<Question[]> {
-    return Array.from(this.questions.values())
-      .filter(q => q.testId === testId)
-      .sort((a, b) => a.questionNumber - b.questionNumber);
+    return db.select().from(questions)
+      .where(eq(questions.testId, testId))
+      .orderBy(asc(questions.questionNumber));
   }
 
   async createQuestion(question: InsertQuestion): Promise<Question> {
-    const id = randomUUID();
-    const newQuestion: Question = { ...question, id };
-    this.questions.set(id, newQuestion);
+    const result = await db.insert(questions).values(question).returning();
     
-    // Update test total questions
-    const test = this.tests.get(question.testId);
-    if (test) {
-      test.totalQuestions += 1;
-      this.tests.set(test.id, test);
-    }
+    // Update test total questions count
+    await db.update(tests)
+      .set({ totalQuestions: sql`${tests.totalQuestions} + 1` })
+      .where(eq(tests.id, question.testId));
     
-    return newQuestion;
+    return result[0];
   }
 
   // Submissions
   async createSubmission(submission: InsertSubmission): Promise<Submission> {
-    const id = randomUUID();
-    const newSubmission: Submission = { ...submission, id, rank: null, submittedAt: new Date() };
-    this.submissions.set(id, newSubmission);
+    const result = await db.insert(submissions).values(submission).returning();
     
     // Calculate ranks for this test
     const testSubmissions = await this.getSubmissionsByTest(submission.testId);
     const sorted = testSubmissions.sort((a, b) => b.score - a.score);
-    sorted.forEach((sub, index) => {
-      this.updateSubmissionRank(sub.id, index + 1);
-    });
     
-    return this.submissions.get(id)!;
+    for (let i = 0; i < sorted.length; i++) {
+      await this.updateSubmissionRank(sorted[i].id, i + 1);
+    }
+    
+    // Return the updated submission with rank
+    const updated = await db.select().from(submissions)
+      .where(eq(submissions.id, result[0].id))
+      .limit(1);
+    return updated[0];
   }
 
   async getSubmissionsByTest(testId: string): Promise<Submission[]> {
-    return Array.from(this.submissions.values()).filter(s => s.testId === testId);
+    return db.select().from(submissions).where(eq(submissions.testId, testId));
   }
 
   async updateSubmissionRank(id: string, rank: number): Promise<void> {
-    const submission = this.submissions.get(id);
-    if (submission) {
-      submission.rank = rank;
-      this.submissions.set(id, submission);
-    }
+    await db.update(submissions).set({ rank }).where(eq(submissions.id, id));
   }
 
   // Groups
   async getGroupsByUser(userId: string): Promise<Group[]> {
-    const memberGroups = Array.from(this.groupMembers.values())
-      .filter(m => m.userId === userId && m.status === "accepted")
-      .map(m => m.groupId);
+    const memberGroups = await db.select()
+      .from(groupMembers)
+      .where(and(eq(groupMembers.userId, userId), eq(groupMembers.status, "accepted")));
     
-    return Array.from(this.groups.values()).filter(g => memberGroups.includes(g.id));
+    const groupIds = memberGroups.map(m => m.groupId);
+    if (groupIds.length === 0) return [];
+    
+    return db.select().from(groups)
+      .where(sql`${groups.id} = ANY(${groupIds})`);
   }
 
   async getGroupByUsername(username: string): Promise<Group | undefined> {
-    return Array.from(this.groups.values()).find(g => g.username === username);
+    const result = await db.select().from(groups).where(eq(groups.username, username)).limit(1);
+    return result[0];
   }
 
   async createGroup(group: InsertGroup): Promise<Group> {
-    const id = randomUUID();
-    const newGroup: Group = { ...group, id, createdAt: new Date() };
-    this.groups.set(id, newGroup);
+    const result = await db.insert(groups).values(group).returning();
     
     // Auto-add creator as member
     await this.createGroupMember({
-      groupId: id,
+      groupId: result[0].id,
       userId: group.creatorId,
       status: "accepted",
     });
     
-    return newGroup;
+    return result[0];
   }
 
   // Group Members
   async createGroupMember(member: InsertGroupMember): Promise<GroupMember> {
-    const id = randomUUID();
-    const newMember: GroupMember = { ...member, id, joinedAt: new Date() };
-    this.groupMembers.set(id, newMember);
-    return newMember;
+    const result = await db.insert(groupMembers).values(member).returning();
+    return result[0];
   }
 
   async getGroupMembers(groupId: string): Promise<GroupMember[]> {
-    return Array.from(this.groupMembers.values()).filter(m => m.groupId === groupId);
+    return db.select().from(groupMembers).where(eq(groupMembers.groupId, groupId));
   }
 
   async updateGroupMemberStatus(id: string, status: string): Promise<void> {
-    const member = this.groupMembers.get(id);
-    if (member) {
-      member.status = status;
-      this.groupMembers.set(id, member);
-    }
+    await db.update(groupMembers).set({ status }).where(eq(groupMembers.id, id));
   }
 
   // Messages
   async getMessages(groupId?: string, stream?: string): Promise<Message[]> {
-    return Array.from(this.messages.values()).filter(m => {
-      if (groupId) return m.groupId === groupId;
-      if (stream) return m.stream === stream;
-      return false;
-    }).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    if (groupId) {
+      return db.select().from(messages)
+        .where(eq(messages.groupId, groupId))
+        .orderBy(asc(messages.createdAt));
+    }
+    if (stream) {
+      return db.select().from(messages)
+        .where(eq(messages.stream, stream))
+        .orderBy(asc(messages.createdAt));
+    }
+    return [];
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
-    const id = randomUUID();
-    const newMessage: Message = { 
-      ...message, 
-      id, 
-      groupId: message.groupId || null,
-      stream: message.stream || null,
-      createdAt: new Date(),
-      reactions: message.reactions || {},
-    };
-    this.messages.set(id, newMessage);
-    return newMessage;
+    const result = await db.insert(messages).values(message).returning();
+    return result[0];
   }
 
   // Chat Settings
   async getChatSetting(stream: string): Promise<ChatSetting | undefined> {
-    return this.chatSettings.get(stream);
+    const result = await db.select().from(chatSettings)
+      .where(eq(chatSettings.stream, stream))
+      .limit(1);
+    return result[0];
   }
 
   async updateChatSetting(stream: string, isEnabled: boolean): Promise<void> {
-    const id = randomUUID();
-    this.chatSettings.set(stream, { id, stream, isEnabled });
+    const existing = await this.getChatSetting(stream);
+    if (existing) {
+      await db.update(chatSettings)
+        .set({ isEnabled })
+        .where(eq(chatSettings.stream, stream));
+    } else {
+      await db.insert(chatSettings).values({ stream, isEnabled });
+    }
   }
 
   // Announcements
   async getAnnouncements(stream?: string, classLevel?: string): Promise<Announcement[]> {
-    return Array.from(this.announcements.values())
-      .filter(a => {
-        if (stream && a.stream && a.stream !== stream) return false;
-        if (classLevel && a.class && a.class !== classLevel) return false;
-        return true;
-      })
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    let query = db.select().from(announcements);
+    
+    if (stream || classLevel) {
+      const conditions = [];
+      if (stream) conditions.push(eq(announcements.stream, stream));
+      if (classLevel) conditions.push(eq(announcements.class, classLevel));
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const result = await query.orderBy(desc(announcements.createdAt));
+    return result;
   }
 
   async createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement> {
-    const id = randomUUID();
-    const newAnnouncement: Announcement = { 
-      ...announcement, 
-      id, 
-      stream: announcement.stream || null,
-      class: announcement.class || null,
-      createdAt: new Date() 
-    };
-    this.announcements.set(id, newAnnouncement);
-    return newAnnouncement;
+    const result = await db.insert(announcements).values(announcement).returning();
+    return result[0];
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DbStorage();
