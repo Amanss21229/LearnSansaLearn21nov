@@ -31,7 +31,12 @@ export default function Home() {
 
   const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ["/api/subjects", user?.stream, user?.class],
-    enabled: !!user,
+    queryFn: async () => {
+      const response = await fetch(`/api/subjects?stream=${user?.stream}&class=${user?.class}`);
+      if (!response.ok) throw new Error("Failed to fetch subjects");
+      return response.json();
+    },
+    enabled: !!user?.stream && !!user?.class,
   });
 
   const { data: banners } = useQuery<Banner[]>({
