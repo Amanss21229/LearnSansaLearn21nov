@@ -79,21 +79,32 @@ Preferred communication style: Simple, everyday language.
 
 ### Authentication & Authorization
 
-**Current Implementation (No Auth)**
-- Simple registration-based system without passwords
-- User data stored in localStorage
-- Client-side session management via UserContext
-- No JWT or session tokens currently implemented
+**Current Implementation**
+- Password-based authentication with bcrypt hashing (10 rounds)
+- User type selection during registration: Student or Teacher
+- Teacher verification using TEACHER_ACCESS_PASSWORD environment secret
+- Welcome page with "Create Account" and "Login" options
+- Secure password handling with UserPublic type to prevent password exposure
+
+**Security Implementation**
+- UserPublic type: Excludes password field from all client-facing responses
+- toPublicUser helper function: Strips passwords from API responses
+- All user-facing endpoints sanitized: registration, login, user fetch, user update, leaderboard
+- Message endpoints only expose userName and userPhoto fields
+- Failed login shows WhatsApp contact message (9153021229)
 
 **Role-Based Access Control**
-- User roles: regular user vs admin (isAdmin boolean)
-- Admin users have an adminClass field for managing specific class levels
-- Planned feature: admins can create tests, subjects, and manage content for their assigned classes
+- User types: student or teacher (userType field)
+- isAdmin flag automatically set for teacher accounts
+- Admin users have adminClass field set to "all" for managing content across all classes
+- Teachers can create tests, subjects, and manage content for their assigned classes
 
-**Planned Enhancement**
-- JWT-based authentication system
-- Session management with connect-pg-simple for PostgreSQL session store
-- Protected API routes with middleware authentication checks
+**Authentication Flow**
+- New users: Welcome page → Create Account (with password + user type selection)
+- Existing users: Welcome page → Login (username + password)
+- Teacher registration requires valid TEACHER_ACCESS_PASSWORD from Replit Secrets
+- User data stored in UserContext (client-side) and PostgreSQL (server-side)
+- No session tokens or JWT currently implemented (stateless authentication)
 
 ### External Dependencies
 
