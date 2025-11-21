@@ -28,6 +28,7 @@ export interface IStorage {
   // Subjects
   getSubjects(stream: string, classLevel: string): Promise<Subject[]>;
   createSubject(subject: InsertSubject): Promise<Subject>;
+  deleteSubject(id: string): Promise<void>;
   
   // Sections
   getSections(subjectId: string): Promise<Section[]>;
@@ -36,6 +37,7 @@ export interface IStorage {
   // Materials
   getMaterials(sectionId: string): Promise<Material[]>;
   createMaterial(material: InsertMaterial): Promise<Material>;
+  incrementMaterialView(id: string): Promise<void>;
   
   // Banners
   getBanners(): Promise<Banner[]>;
@@ -126,6 +128,10 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async deleteSubject(id: string): Promise<void> {
+    await db.delete(subjects).where(eq(subjects.id, id));
+  }
+
   // Sections
   async getSections(subjectId: string): Promise<Section[]> {
     return db.select().from(sections).where(eq(sections.subjectId, subjectId));
@@ -144,6 +150,12 @@ export class DbStorage implements IStorage {
   async createMaterial(material: InsertMaterial): Promise<Material> {
     const result = await db.insert(materials).values(material).returning();
     return result[0];
+  }
+
+  async incrementMaterialView(id: string): Promise<void> {
+    await db.update(materials)
+      .set({ viewCount: sql`${materials.viewCount} + 1` })
+      .where(eq(materials.id, id));
   }
 
   // Banners

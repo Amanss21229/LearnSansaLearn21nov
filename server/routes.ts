@@ -351,6 +351,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/subjects/:id", async (req, res) => {
+    try {
+      await storage.deleteSubject(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Section routes
   app.get("/api/sections", async (req, res) => {
     try {
@@ -428,6 +437,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const material = await storage.createMaterial(req.body);
       res.json(material);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Increment material view count
+  app.post("/api/materials/:id/view", async (req, res) => {
+    try {
+      await storage.incrementMaterialView(req.params.id);
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

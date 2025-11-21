@@ -18,6 +18,8 @@ import SearchDialog from "@/components/SearchDialog";
 import BannerUploadDialog from "@/components/BannerUploadDialog";
 import SectionDialog from "@/components/SectionDialog";
 import MaterialUploadDialog from "@/components/MaterialUploadDialog";
+import SubjectDialog from "@/components/SubjectDialog";
+import MaterialViewer from "@/components/MaterialViewer";
 
 const subjectIcons = {
   Hindi: BookOpen,
@@ -42,6 +44,9 @@ export default function Home() {
   const [showBannerDialog, setShowBannerDialog] = useState(false);
   const [showSectionDialog, setShowSectionDialog] = useState(false);
   const [showMaterialDialog, setShowMaterialDialog] = useState(false);
+  const [showSubjectDialog, setShowSubjectDialog] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [showMaterialViewer, setShowMaterialViewer] = useState(false);
 
   const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ["/api/subjects", user?.stream, user?.class],
@@ -127,6 +132,8 @@ export default function Home() {
 
       <SearchDialog open={showSearch} onOpenChange={setShowSearch} userId={user?.id || ""} />
       <BannerUploadDialog open={showBannerDialog} onOpenChange={setShowBannerDialog} />
+      <SubjectDialog open={showSubjectDialog} onOpenChange={setShowSubjectDialog} />
+      <MaterialViewer material={selectedMaterial} open={showMaterialViewer} onOpenChange={setShowMaterialViewer} />
       {selectedSubject && (
         <>
           <SectionDialog open={showSectionDialog} onOpenChange={setShowSectionDialog} subjectId={selectedSubject.id} />
@@ -180,7 +187,19 @@ export default function Home() {
 
           {/* Subjects */}
           <div className="space-y-3">
-            <h2 className="font-heading font-semibold text-lg">{t("subjects")}</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading font-semibold text-lg">{t("subjects")}</h2>
+              {user?.isAdmin && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowSubjectDialog(true)} 
+                  data-testid="button-manage-subjects"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {subjects?.map((subject) => {
                 const Icon = getSubjectIcon(subject.name);
@@ -243,11 +262,8 @@ export default function Home() {
                                             key={material.id}
                                             className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover-elevate cursor-pointer"
                                             onClick={() => {
-                                              if (material.type === "youtube") {
-                                                window.open(material.url, "_blank");
-                                              } else {
-                                                window.open(material.url, "_blank");
-                                              }
+                                              setSelectedMaterial(material);
+                                              setShowMaterialViewer(true);
                                             }}
                                             data-testid={`material-${material.id}`}
                                           >
