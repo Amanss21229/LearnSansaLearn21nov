@@ -5,9 +5,11 @@ import { storage } from "./storage";
 import OpenAI from "openai";
 import type { User } from "@shared/schema";
 
-// Initialize OpenAI client
+// Initialize OpenAI client only if API key is provided
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 interface WebSocketClient extends WebSocket {
   userId?: string;
@@ -344,6 +346,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Tutor
   app.post("/api/ai-tutor", async (req, res) => {
     try {
+      if (!openai) {
+        return res.status(503).json({ 
+          error: "AI Tutor is not available. Please configure OPENAI_API_KEY to enable this feature." 
+        });
+      }
+
       const { message } = req.body;
 
       const completion = await openai.chat.completions.create({
