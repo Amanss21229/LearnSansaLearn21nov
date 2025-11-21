@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { subjects, users, chatSettings } from "@shared/schema";
 import { sql } from "drizzle-orm";
+import bcrypt from "bcrypt";
 
 async function seed() {
   console.log("🌱 Seeding database...");
@@ -40,18 +41,20 @@ async function seed() {
     }
     console.log(`✓ Created ${defaultSubjects.length} default subjects`);
 
-    // Create initial admin user
+    // Create initial admin user with hashed password
+    const hashedPassword = await bcrypt.hash("admin123", 10);
     await db.insert(users).values({
       name: "Admin",
       username: "admin",
+      password: hashedPassword,
       gender: "Male",
       stream: "School",
       class: "12",
       language: "english",
       isAdmin: true,
-      adminClass: "all", // Can manage all classes
+      adminClass: "all",
     });
-    console.log("✓ Created admin user (username: admin)");
+    console.log("✓ Created admin user (username: admin, password: admin123)");
 
     // Initialize chat settings for all streams
     const streams = ["School", "NEET", "JEE"];
