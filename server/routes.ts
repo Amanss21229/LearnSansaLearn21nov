@@ -5,7 +5,14 @@ import multer from "multer";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import Groq from "groq-sdk";
-import type { User } from "@shared/schema";
+import type { User, UserPublic } from "@shared/schema";
+
+// Helper function to strip password from user objects
+function toPublicUser(user: User | null): UserPublic | null {
+  if (!user) return null;
+  const { password: _, ...userWithoutPassword } = user;
+  return userWithoutPassword;
+}
 
 // Initialize Groq client for AI tutor
 const groq = process.env.GROQ_API_KEY 
@@ -235,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await storage.getUser(req.params.id);
       if (!user) return res.status(404).json({ error: "User not found" });
-      res.json(user);
+      res.json(toPublicUser(user));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -262,9 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
-      // Return user data (without password)
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(toPublicUser(user));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -306,10 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       delete userData.teacherAccessPassword;
 
       const user = await storage.createUser(userData);
-      
-      // Return user data (without password)
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(toPublicUser(user));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -317,8 +319,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/users/:id", async (req, res) => {
     try {
-      const user = await storage.updateUser(req.params.id, req.body);
-      res.json(user);
+      // Don't allow password updates through this endpoint
+      const { password, ...updateData } = req.body;
+      const user = await storage.updateUser(req.params.id, updateData);
+      res.json(toPublicUser(user));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -559,13 +563,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const submissions = await storage.getSubmissionsByTest(req.params.testId);
       
-      // Get user data for each submission
+      // Get user data for each submission (without password)
       const leaderboard = await Promise.all(
         submissions.map(async (submission) => {
           const user = await storage.getUser(submission.userId);
           return {
             ...submission,
-            user,
+            user: toPublicUser(user),
           };
         })
       );

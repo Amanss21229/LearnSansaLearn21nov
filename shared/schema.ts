@@ -32,6 +32,9 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// Public user type without sensitive fields (for client-side use)
+export type UserPublic = Omit<User, 'password'>;
+
 // Subjects table
 export const subjects = pgTable("subjects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

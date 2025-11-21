@@ -1,16 +1,16 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import type { User } from "@shared/schema";
+import type { UserPublic } from "@shared/schema";
 
 interface UserContextType {
-  user: User | null;
-  setUser: (user: User | null) => void;
+  user: UserPublic | null;
+  setUser: (user: UserPublic | null) => void;
   logout: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<User | null>(null);
+  const [user, setUserState] = useState<UserPublic | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("sansa-user");
@@ -23,7 +23,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const setUser = (user: User | null) => {
+  const setUser = (user: UserPublic | null) => {
     setUserState(user);
     if (user) {
       localStorage.setItem("sansa-user", JSON.stringify(user));

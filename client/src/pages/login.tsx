@@ -9,7 +9,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { User as UserType } from "@shared/schema";
+import { UserPublic } from "@shared/schema";
 import { LogIn, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -24,9 +24,9 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
-      return await apiRequest<UserType>("POST", "/api/auth/login", data);
+      return await apiRequest("POST", "/api/auth/login", data);
     },
-    onSuccess: (user) => {
+    onSuccess: (user: UserPublic) => {
       setUser(user);
       toast({
         title: t("success"),
@@ -130,7 +130,7 @@ export default function Login() {
             <div className="text-center">
               <Button
                 type="button"
-                variant="link"
+                variant="ghost"
                 onClick={() => setLocation("/register")}
                 data-testid="button-go-to-register"
               >

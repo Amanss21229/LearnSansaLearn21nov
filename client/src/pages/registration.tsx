@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useUser } from "@/contexts/UserContext";
-import type { User as UserType } from "@shared/schema";
+import type { UserPublic } from "@shared/schema";
 import { useLocation } from "wouter";
 
 const registrationSchema = z.object({
@@ -59,9 +59,9 @@ export default function Registration() {
 
   const createUserMutation = useMutation({
     mutationFn: async (data: RegistrationForm) => {
-      return await apiRequest<UserType>("POST", "/api/users", data);
+      return await apiRequest("POST", "/api/users", data);
     },
-    onSuccess: (user) => {
+    onSuccess: (user: UserPublic) => {
       setUser(user);
       toast({
         title: t("success"),
@@ -308,7 +308,7 @@ export default function Registration() {
             <div className="text-center">
               <Button
                 type="button"
-                variant="link"
+                variant="ghost"
                 onClick={() => setLocation("/login")}
                 data-testid="button-go-to-login"
               >
