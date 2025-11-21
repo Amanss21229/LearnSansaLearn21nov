@@ -1,0 +1,418 @@
+🚀 PROJECT TITLE:
+
+“Sänsa Learn – Complete Educational Web App (Full Stack)”
+
+💡 PROJECT TYPE:
+
+Build a full-stack educational website with authentication, online tests, AI tutor, chat, announcement panel, study materials, profile system, and admin controls.
+Use free technologies only.
+
+
+---
+
+🔥 IMPORTANT NOTES FOR REPLIT AI
+
+Use free backend + free database (Firebase).
+Use Node.js + Express (or Next.js) for backend if needed.
+Use React + Tailwind CSS for frontend.
+Use Socket.io for live chat.
+Use JWT authentication for login.
+Use role-based access control (user / admin).
+All UI must be simple, modern, smooth, mobile-friendly, user friendly.
+
+
+🧩 FEATURE LIST (VERY CLEAR & STRUCTURED)
+
+1️⃣ Authentication System
+We will do later, for now no authentication.  Then ask for
+
+Name (required)
+Unique username (required, must check availability)
+Gender (required)
+Stream (School / NEET / JEE) (required)
+If School: show class dropdown (5–12)
+
+If NEET or JEE: show class 11 / 12 / Dropper
+
+Profile photo upload (optional)
+
+
+Store all in database with unique user ID.
+
+
+---
+
+2️⃣ Main Interface (After Login)
+
+Website has 5 main tabs at bottom or top:
+
+TAB 1 – Home
+
+Home page contains:
+
+Logo at top (i will provide the logo)
+
+“Welcome to Sansa Learn” text,
+
+Notification icon (opens announcement page)
+
+Search icon (search groups by name/username)
+
+Subject Sections based on stream
+Below subject section add banner scrollable section, user can scroll and see the multiple pictures here, and this pictures can be add or remove by admins, there should be a plus icon only for admins.
+
+Subject Structure
+
+📘 If School → Hindi, English, Math, Science, SST
+📘 If NEET → Class 11 & 12 → Physics, Chemistry, Botany, Zoology
+📘 If JEE → Class 11 & 12 → Physics, Chemistry, Math
+
+Study Material Upload (Admin only)
+(Admin jis class ko choose karega, plus icon pe click karke usi class ka wo update Kar paayega )
+Admins see a ➕ button inside each subject:
+
+Option 1 → Create Section
+Option 2 → Upload Material
+Upload types:
+
+PDF
+
+Images
+
+Audio
+
+Video
+
+YouTube embed link (video should play inside app & count views on YouTube)
+
+
+
+---
+
+3️⃣ TAB 2 – Test Section
+
+Admins see ➕ button with:
+
+Create Test Section (name input)
+
+Create Test
+
+
+Create Test Flow
+
+Admin enters:
+
+Test Name
+
+Total Time (3 hours default but editable)
+
+
+Then:
+
+Upload Question PDF → System extracts questions & converts to clickable MCQ format
+
+Upload Answer Key PDF → System maps answers in order (1 → A, 2 → C, etc.)
+
+
+Test System Features (only only for neet jee stream students)
+
+NEET pattern
+
++4 for correct
+
+–1 for wrong
+
+0 for unattempted
+And marking pattern must be editable for Class 5th to 10th students. 
+Auto-submit when time ends
+
+Show result:
+
+Total score
+
+Right / wrong / unattempted
+
+Rank out of total participants
+
+Leaderboard showing Top 10 users with:
+
+Name
+
+Profile photo
+
+Score
+
+Rank
+
+
+
+
+Detailed Analysis Page
+
+Shows:
+
+List of correct questions
+
+List of wrong questions
+
+List of unattempted questions
+
+
+
+---
+
+4️⃣ TAB 3 – AI Tutor (AIMAI)
+
+Page layout:
+
+Top: “Hi, I’m AIMAI, your Personal AI Tutor”
+
+Features list (ask anything, upload image/audio, etc.)
+
+Chat interface like ChatGPT
+
+Input box for:
+
+Text
+
+Image upload
+
+Audio upload
+
+
+
+AIMAI must answer only academic + study topics.
+
+Use groq.
+
+
+---
+
+5️⃣ TAB 4 – Chat System
+
+Two options:
+
+1. Community Chat (based on user stream)
+
+
+2. Create Group
+
+
+
+Community Chat
+
+All users in same stream can chat
+
+Can send:
+
+Text
+
+Images
+
+Emojis
+
+
+Can react to messages
+
+Admin Controls:
+
+Chat ON/OFF
+
+Pin messages (like Telegram)
+
+
+
+Create Group
+
+User must enter:
+
+Group Name
+
+Group Username (must be unique) Then group is created.
+
+
+Users see:
+
+List of groups they joined
+
+List of groups they created
+
+
+Joining System
+
+Anyone can send join request
+
+Only group admin can accept
+
+Only joined members can see messages
+
+
+Content Filtering
+
+Implement bad-word filter:
+
+If user types any abusive/adult/illegal words →
+Disable Send button instantly
+
+As soon as they remove bad word →
+Enable Send button
+
+
+
+---
+
+6️⃣ TAB 5 – Profile
+
+Profile page shows:
+
+Name
+
+Username
+
+Gender
+
+Class
+
+Stream
+
+Phone
+
+Email
+
+Profile Photo
+
+
+All fields must be editable.
+
+
+---
+
+🔑 ADMIN PANEL FEATURES
+
+Admin access from backend dashboard: (jis class admin login hai, sirf usi class ke sabkuchh manage kar paaye)
+
+Manage announcements 
+
+Manage subjects
+
+Create sections
+
+Upload materials
+
+Create tests
+
+Manage test results
+
+Control chat (On/Off)
+
+Pin messages
+
+Delete abusive content
+
+Approve group join requests
+
+
+Admin roles stored in DB.
+
+
+---
+
+🎨 UI REQUIREMENTS
+
+Modern, clean, minimalistic
+
+Tailwind CSS
+
+Mobile-first
+
+Smooth transitions
+
+Dark + light mode optional
+
+Language (hindi or English)
+If chooses English then everything on website for that user is in English and if chooses hindi then everything on webapp for that user should be converted into hindi, including test
+---
+
+🛠️ TECH STACK RECOMMENDED
+
+Frontend
+
+React + Vite
+
+TailwindCSS
+
+Socket.io-client
+
+
+Backend
+
+Node.js + Express
+
+Socket.io
+
+JWT Authentication
+
+PDF text extractor (pdf-parse or custom)
+
+MCQ converter logic
+
+
+Database (FREE OPTIONS)
+
+Supabase (preferred)
+
+Firebase
+
+Replit DB (if simple)
+
+
+
+---
+
+⚡ DELIVERABLES
+
+Replit AI must produce:
+
+1. Complete frontend code
+
+
+2. Complete backend code
+
+
+3. Database schema
+
+
+4. Authentication system
+
+
+5. AI Tutor integration
+
+
+6. Chat system with Socket.io
+
+
+7. Test system with auto-question extraction
+
+
+8. Test result calculator + leaderboard
+
+
+9. Study material uploader
+
+
+10. Admin dashboard UI
+
+
+11. Deployment instructions
+
+
+12. Single runnable project in Replit
+
+
+
+
+---
+
+🧠 IMPORTANT
+
+Everything must work 100% free using freely available services.
